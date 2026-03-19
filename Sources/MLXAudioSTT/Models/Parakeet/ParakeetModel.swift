@@ -26,6 +26,11 @@ public final class ParakeetModel: Module, STTGenerationModel {
     @ModuleInfo(key: "joint") var joint: ParakeetJointNetwork?
     @ModuleInfo(key: "ctc_decoder") var ctcDecoder: ParakeetConvASRDecoder?
 
+    /// Weight precision resolved once at load time (e.g. .float16 for FP16 checkpoints).
+    /// Used to cast the mel spectrogram before the encoder so the entire forward
+    /// pass runs in the model's native precision without per-op type promotion.
+    private(set) var weightDtype: MLX.DType = .float32
+
     public var defaultGenerationParameters: STTGenerateParameters {
         STTGenerateParameters(
             maxTokens: 8192,
@@ -437,7 +442,11 @@ public final class ParakeetModel: Module, STTGenerationModel {
     }
 
     private func decodeChunk(_ chunkAudio: MLXArray) -> ParakeetAlignedResult {
-        let mel = ParakeetAudio.logMelSpectrogram(chunkAudio, config: preprocessConfig)
+        // Mel spectrogram is computed in F32 for numerical accuracy (FFT, log).
+        // Then cast to the model's weight dtype so the encoder and decoder
+        // run entirely in that precision (e.g. F16) without per-op promotion.
+        var mel = ParakeetAudio.logMelSpectrogram(chunkAudio, config: preprocessConfig)
+        if mel.dtype != weightDtype { mel = mel.asType(weightDtype) }
         return decode(mel: mel)[0]
     }
 
@@ -558,6 +567,7 @@ public extension ParakeetModel {
         }
 
         try model.update(parameters: ModuleParameters.unflattened(sanitized), verify: .all)
+        model.weightDtype = model.encoder.parameters().flattened().first.map(\.1.dtype) ?? .float32
         model.train(false)
         eval(model)
         return model
