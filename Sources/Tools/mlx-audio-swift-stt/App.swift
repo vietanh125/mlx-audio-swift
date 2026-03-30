@@ -226,7 +226,7 @@ private struct Options {
               --chunk-duration <float>      Chunk duration seconds. Default: 30.0
               --frame-threshold <int>       Accepted for compatibility (currently unused). Default: 25
               --stream                      Stream token output while generating
-              --context <text>              Accepted for compatibility (currently unused)
+              --context <text>              System message for context (e.g., "Transcribe into German")
               --prefill-step-size <int>     Accepted for compatibility (currently unused). Default: 2048
               --gen-kwargs <json>           Additional kwargs JSON (e.g. '{"min_chunk_duration":1.0}')
               --text <text>                 Alignment text (required for forced aligner models)
@@ -276,7 +276,7 @@ enum App {
                 print("Warning: --prefill-step-size is currently ignored by this CLI.")
             }
             if options.context?.isEmpty == false {
-                print("Warning: --context is currently ignored by this CLI.")
+                print("System message: \(options.context!)")
             }
         }
 
@@ -292,7 +292,8 @@ enum App {
                 verbose: options.verbose,
                 language: normalizeLanguage(options.language),
                 chunkDuration: options.chunkDuration,
-                minChunkDuration: options.minChunkDuration ?? params.minChunkDuration
+                minChunkDuration: options.minChunkDuration ?? params.minChunkDuration,
+                systemMessage: options.context
             )
 
             if options.stream {

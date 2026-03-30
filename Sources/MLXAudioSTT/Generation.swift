@@ -9,6 +9,9 @@ public struct STTGenerateParameters: Sendable {
     public let language: String?
     public let chunkDuration: Float
     public let minChunkDuration: Float
+    /// Optional system message for context (e.g., "Transcribe this audio into German text").
+    /// When set, the model caches the system-message prefix so repeated calls skip re-encoding it.
+    public let systemMessage: String?
 
     public init(
         maxTokens: Int = 8192,
@@ -18,7 +21,8 @@ public struct STTGenerateParameters: Sendable {
         verbose: Bool = false,
         language: String? = nil,
         chunkDuration: Float = 1200.0,
-        minChunkDuration: Float = 1.0
+        minChunkDuration: Float = 1.0,
+        systemMessage: String? = nil
     ) {
         self.maxTokens = maxTokens
         self.temperature = temperature
@@ -28,6 +32,7 @@ public struct STTGenerateParameters: Sendable {
         self.language = language
         self.chunkDuration = chunkDuration
         self.minChunkDuration = minChunkDuration
+        self.systemMessage = systemMessage
     }
 }
 

@@ -12,27 +12,36 @@ import MLX
 
 
 /// Create a Hanning window of given size.
-/// - Parameters:
-///   - size: The number of samples in the window.
-///   - periodic: If true (default), use N in the denominator (PyTorch-style periodic window
-///     for STFT). If false, use N-1 (symmetric/numpy-style).
-public func hanningWindow(size: Int, periodic: Bool = false) -> MLXArray {
-    guard size > 0 else { return MLXArray.zeros([0], type: Float.self) }
-    if size == 1 { return MLXArray([Float(1.0)]) }
-
-    let effectiveSize = periodic ? size + 1 : size
-    let denom = Float(effectiveSize - 1)
-
-    var values = [Float](repeating: 0, count: effectiveSize)
-    for n in 0..<effectiveSize {
-        values[n] = 0.5 * (1 - cos(2 * Float.pi * Float(n) / denom))
+public func hanningWindow(size: Int) -> MLXArray {
+    var window = [Float](repeating: 0, count: size)
+    let denom = Float(size - 1)
+    for n in 0..<size {
+        window[n] = 0.5 * (1 - cos(2 * Float.pi * Float(n) / denom))
     }
-
-    if periodic {
-        return MLXArray(Array(values.prefix(size)))
-    }
-    return MLXArray(values)
+    return MLXArray(window)
 }
+
+// /// - Parameters:
+// ///   - size: The number of samples in the window.
+// ///   - periodic: If true (default), use N in the denominator (PyTorch-style periodic window
+// ///     for STFT). If false, use N-1 (symmetric/numpy-style).
+// public func hanningWindow(size: Int, periodic: Bool = false) -> MLXArray {
+//     guard size > 0 else { return MLXArray.zeros([0], type: Float.self) }
+//     if size == 1 { return MLXArray([Float(1.0)]) }
+
+//     let effectiveSize = periodic ? size + 1 : size
+//     let denom = Float(effectiveSize - 1)
+
+//     var values = [Float](repeating: 0, count: effectiveSize)
+//     for n in 0..<effectiveSize {
+//         values[n] = 0.5 * (1 - cos(2 * Float.pi * Float(n) / denom))
+//     }
+
+//     if periodic {
+//         return MLXArray(Array(values.prefix(size)))
+//     }
+//     return MLXArray(values)
+// }
 
 /// Create a Hamming window of given size.
 public func hammingWindow(size: Int, periodic: Bool = true) -> MLXArray {
@@ -257,7 +266,6 @@ public func computeMelSpectrogram(
 
         // Compute magnitude squared (power spectrum)
         let magnitudes = MLX.abs(freqs).square()
-        eval(magnitudes)  // Allow MLX to free STFT complex output
 
         // Create mel filterbank [nFreqs, nMels]
         let filters = melFilters(
@@ -269,7 +277,6 @@ public func computeMelSpectrogram(
 
         // Apply mel filterbank: [numFrames, nFreqs] @ [nFreqs, nMels] = [numFrames, nMels]
         var melSpec = MLX.matmul(magnitudes, filters)
-        eval(melSpec)  // Allow MLX to free magnitudes and filters
 
         // Apply log scaling with clamping (Whisper-style normalization)
         melSpec = MLX.maximum(melSpec, MLXArray(Float(1e-10)))

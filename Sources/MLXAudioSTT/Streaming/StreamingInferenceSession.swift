@@ -109,6 +109,11 @@ public class StreamingInferenceSession: @unchecked Sendable {
         self.events = AsyncStream { continuation = $0 }
         self.continuation = continuation
         self.isActive = true
+
+        // Cache the system message prefix so every decode pass reuses it.
+        if let msg = config.systemMessage {
+            model.cacheSystemPrefix(msg)
+        }
     }
 
     public func feedAudio(samples: [Float]) {
@@ -468,10 +473,20 @@ public class StreamingInferenceSession: @unchecked Sendable {
         let eosTokenIds = [151645, 151643]
         let confirmedCount = params.confirmedTokenIds.count
 
-        let inputIds = model.buildPrompt(
-            numAudioTokens: numAudioTokens,
-            language: params.config.language
-        )
+        let hasCachedPrefix = model._systemPrefixCacheState != nil
+        let inputIds: MLXArray
+        if hasCachedPrefix {
+            inputIds = model.buildPostSystemPrompt(
+                numAudioTokens: numAudioTokens,
+                language: params.config.language
+            )
+        } else {
+            inputIds = model.buildPrompt(
+                numAudioTokens: numAudioTokens,
+                language: params.config.language,
+                systemMessage: params.config.systemMessage
+            )
+        }
 
         let embeds = model.model.embedTokens(inputIds)
         let inputsEmbeds = model.mergeAudioFeatures(
@@ -480,7 +495,7 @@ public class StreamingInferenceSession: @unchecked Sendable {
             inputIds: inputIds
         )
 
-        let cache = model.makeCache()
+        let cache = model.makeCacheWithPrefix()
         var logits = model.callAsFunction(
             inputIds: inputIds,
             inputEmbeddings: inputsEmbeds,
@@ -940,10 +955,20 @@ public class StreamingInferenceSession: @unchecked Sendable {
         let numAudioTokens = audioFeatures.dim(0)
         let eosTokenIds = [151645, 151643]
 
-        let inputIds = model.buildPrompt(
-            numAudioTokens: numAudioTokens,
-            language: config.language
-        )
+        let hasCachedPrefix = model._systemPrefixCacheState != nil
+        let inputIds: MLXArray
+        if hasCachedPrefix {
+            inputIds = model.buildPostSystemPrompt(
+                numAudioTokens: numAudioTokens,
+                language: config.language
+            )
+        } else {
+            inputIds = model.buildPrompt(
+                numAudioTokens: numAudioTokens,
+                language: config.language,
+                systemMessage: config.systemMessage
+            )
+        }
 
         let embeds = model.model.embedTokens(inputIds)
         let inputsEmbeds = model.mergeAudioFeatures(
@@ -952,7 +977,7 @@ public class StreamingInferenceSession: @unchecked Sendable {
             inputIds: inputIds
         )
 
-        let cache = model.makeCache()
+        let cache = model.makeCacheWithPrefix()
         var logits = model.callAsFunction(
             inputIds: inputIds,
             inputEmbeddings: inputsEmbeds,

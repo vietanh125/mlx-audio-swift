@@ -46,7 +46,8 @@ extension Qwen3ASRModel: STTGenerationModel {
             temperature: generationParameters.temperature,
             language: generationParameters.language,
             chunkDuration: generationParameters.chunkDuration,
-            minChunkDuration: generationParameters.minChunkDuration
+            minChunkDuration: generationParameters.minChunkDuration,
+            systemMessage: generationParameters.systemMessage
         )
     }
 
@@ -60,7 +61,8 @@ extension Qwen3ASRModel: STTGenerationModel {
             temperature: generationParameters.temperature,
             language: generationParameters.language,
             chunkDuration: generationParameters.chunkDuration,
-            minChunkDuration: generationParameters.minChunkDuration
+            minChunkDuration: generationParameters.minChunkDuration,
+            systemMessage: generationParameters.systemMessage
         )
     }
 }
@@ -1138,7 +1140,7 @@ public class Qwen3ASRModel: Module {
         return merged.isEmpty ? nil : merged.joined(separator: ",")
     }
 
-    public func buildPrompt(numAudioTokens: Int, language: String? = nil) -> MLXArray {
+    public func buildPrompt(numAudioTokens: Int, language: String? = nil, systemMessage: String? = nil) -> MLXArray {
         guard let tokenizer = tokenizer else {
             fatalError("Tokenizer not loaded")
         }
@@ -1150,8 +1152,42 @@ public class Qwen3ASRModel: Module {
             assistantPrefix = ""
         }
 
-        let prompt = "<|im_start|>system\n<|im_end|>\n"
+        let systemContent = systemMessage ?? ""
+        let prompt = "<|im_start|>system\n\(systemContent)<|im_end|>\n"
             + "<|im_start|>user\n<|audio_start|>"
+            + String(repeating: "<|audio_pad|>", count: numAudioTokens)
+            + "<|audio_end|><|im_end|>\n"
+            + "<|im_start|>assistant\n"
+            + assistantPrefix
+
+        let tokenIds = tokenizer.encode(text: prompt)
+        return MLXArray(tokenIds.map { Int32($0) }).expandedDimensions(axis: 0)
+    }
+
+    /// Build token IDs for just the system-message portion of the prompt.
+    private func buildSystemPrefixTokens(_ systemMessage: String) -> MLXArray {
+        guard let tokenizer = tokenizer else {
+            fatalError("Tokenizer not loaded")
+        }
+        let prompt = "<|im_start|>system\n\(systemMessage)<|im_end|>\n"
+        let tokenIds = tokenizer.encode(text: prompt)
+        return MLXArray(tokenIds.map { Int32($0) }).expandedDimensions(axis: 0)
+    }
+
+    /// Build token IDs for everything after the system-message prefix.
+    func buildPostSystemPrompt(numAudioTokens: Int, language: String?) -> MLXArray {
+        guard let tokenizer = tokenizer else {
+            fatalError("Tokenizer not loaded")
+        }
+
+        let assistantPrefix: String
+        if let langName = normalizeLanguageName(language) {
+            assistantPrefix = "language \(langName)<asr_text>"
+        } else {
+            assistantPrefix = ""
+        }
+
+        let prompt = "<|im_start|>user\n<|audio_start|>"
             + String(repeating: "<|audio_pad|>", count: numAudioTokens)
             + "<|audio_end|><|im_end|>\n"
             + "<|im_start|>assistant\n"
@@ -1169,6 +1205,46 @@ public class Qwen3ASRModel: Module {
         }
     }
 
+    // MARK: - System Prefix Cache
+
+    /// Cached KV state from processing the system message prefix.
+    /// Each element is the `[keys, values]` state for one decoder layer.
+    var _systemPrefixCacheState: [[MLXArray]]?
+    /// The system message that was cached (to detect changes).
+    var _cachedSystemMessage: String?
+
+    /// Run the system-message tokens through the decoder once and store the resulting KV cache state.
+    /// Subsequent calls with the same message are a no-op; a different message re-caches.
+    public func cacheSystemPrefix(_ systemMessage: String) {
+        if systemMessage == _cachedSystemMessage { return }
+
+        let inputIds = buildSystemPrefixTokens(systemMessage)
+        let embeds = model.embedTokens(inputIds)
+        let cache = makeCache()
+        let _ = callAsFunction(inputIds: inputIds, inputEmbeddings: embeds, cache: cache)
+        // Evaluate all cache arrays so they are materialized before we snapshot them.
+        eval(cache.flatMap { $0.innerState() })
+        _systemPrefixCacheState = cache.map { $0.state }
+        _cachedSystemMessage = systemMessage
+    }
+
+    /// Invalidate any cached system prefix.
+    public func clearSystemPrefixCache() {
+        _systemPrefixCacheState = nil
+        _cachedSystemMessage = nil
+    }
+
+    /// Create a new KV cache, optionally pre-filled with the cached system-message prefix.
+    func makeCacheWithPrefix() -> [KVCache] {
+        var cache = makeCache()
+        if let prefixState = _systemPrefixCacheState {
+            for i in 0..<cache.count {
+                cache[i].state = prefixState[i]
+            }
+        }
+        return cache
+    }
+
     // MARK: - Single Chunk Generation (internal)
 
     private func generateSingleChunk(
@@ -1184,7 +1260,14 @@ public class Qwen3ASRModel: Module {
         let eosTokenIds = [151645, 151643]
 
         let (inputFeatures, featureAttentionMask, numAudioTokens) = preprocessAudio(audio)
-        let inputIds = buildPrompt(numAudioTokens: numAudioTokens, language: language)
+
+        let hasCachedPrefix = _systemPrefixCacheState != nil
+        let inputIds: MLXArray
+        if hasCachedPrefix {
+            inputIds = buildPostSystemPrompt(numAudioTokens: numAudioTokens, language: language)
+        } else {
+            inputIds = buildPrompt(numAudioTokens: numAudioTokens, language: language)
+        }
         let promptTokenCount = inputIds.dim(1)
 
         let audioFeatures = getAudioFeatures(inputFeatures, featureAttentionMask: featureAttentionMask)
@@ -1197,7 +1280,7 @@ public class Qwen3ASRModel: Module {
             inputIds: inputIds
         )
 
-        let cache = makeCache()
+        let cache = makeCacheWithPrefix()
         var logits = callAsFunction(
             inputIds: inputIds,
             inputEmbeddings: inputsEmbeds,
@@ -1240,10 +1323,18 @@ public class Qwen3ASRModel: Module {
         temperature: Float = 0.0,
         language: String? = nil,
         chunkDuration: Float = 1200.0,
-        minChunkDuration: Float = 1.0
+        minChunkDuration: Float = 1.0,
+        systemMessage: String? = nil
     ) -> STTOutput {
         let startTime = Date()
         let forcedLanguage = normalizeLanguageName(language)
+
+        // Cache system prefix if a system message is provided
+        if let msg = systemMessage {
+            cacheSystemPrefix(msg)
+        } else {
+            clearSystemPrefixCache()
+        }
 
         // Split audio into chunks
         let chunks = splitAudioIntoChunks(
@@ -1317,8 +1408,16 @@ public class Qwen3ASRModel: Module {
         temperature: Float = 0.0,
         language: String? = nil,
         chunkDuration: Float = 1200.0,
-        minChunkDuration: Float = 1.0
+        minChunkDuration: Float = 1.0,
+        systemMessage: String? = nil
     ) -> AsyncThrowingStream<STTGeneration, Error> {
+        // Cache system prefix before entering the detached task (model mutation must happen here).
+        if let msg = systemMessage {
+            cacheSystemPrefix(msg)
+        } else {
+            clearSystemPrefixCache()
+        }
+
         let sendableModel = UncheckedSendableBox(self)
         let sendableAudio = UncheckedSendableBox(audio)
         return AsyncThrowingStream { continuation in
@@ -1332,6 +1431,7 @@ public class Qwen3ASRModel: Module {
 
                     let startTime = Date()
                     let eosTokenIds = [151645, 151643]
+                    let hasCachedPrefix = model._systemPrefixCacheState != nil
 
                     // Split audio into chunks
                     let chunks = splitAudioIntoChunks(
@@ -1353,10 +1453,18 @@ public class Qwen3ASRModel: Module {
 
                         // Preprocess this chunk
                         let (inputFeatures, featureAttentionMask, numAudioTokens) = model.preprocessAudio(chunkAudio)
-                        let inputIds = model.buildPrompt(
-                            numAudioTokens: numAudioTokens,
-                            language: resolvedLanguage
-                        )
+                        let inputIds: MLXArray
+                        if hasCachedPrefix {
+                            inputIds = model.buildPostSystemPrompt(
+                                numAudioTokens: numAudioTokens,
+                                language: resolvedLanguage
+                            )
+                        } else {
+                            inputIds = model.buildPrompt(
+                                numAudioTokens: numAudioTokens,
+                                language: resolvedLanguage
+                            )
+                        }
                         let promptTokenCount = inputIds.dim(1)
                         totalPromptTokens += promptTokenCount
 
@@ -1373,7 +1481,7 @@ public class Qwen3ASRModel: Module {
                             inputIds: inputIds
                         )
 
-                        let cache = model.makeCache()
+                        let cache = model.makeCacheWithPrefix()
                         var logits = model.callAsFunction(
                             inputIds: inputIds,
                             inputEmbeddings: inputsEmbeds,
