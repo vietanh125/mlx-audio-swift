@@ -13,7 +13,7 @@ public final class Qwen3TTSModel: Module, SpeechGenerationModel, @unchecked Send
     let talker: Qwen3TTSTalkerForConditionalGeneration
     var speakerEncoder: Qwen3TTSSpeakerEncoder?
     var speechTokenizer: Qwen3TTSSpeechTokenizer?
-    var tokenizer: Tokenizer?
+    var tokenizer: Tokenizers.Tokenizer?
 
     public var sampleRate: Int { config.sampleRate }
 
@@ -431,7 +431,7 @@ public final class Qwen3TTSModel: Module, SpeechGenerationModel, @unchecked Send
         language: String
     ) -> (MLXArray, MLXArray, MLXArray, MLXArray) {
         guard let tokenizer, let talkerConfig = config.talkerConfig, let speechTokenizer else {
-            fatalError("Tokenizer/config/speech tokenizer not loaded")
+            fatalError("Tokenizers.Tokenizer/config/speech tokenizer not loaded")
         }
 
         var refAudioForEncoder = refAudio
@@ -602,7 +602,7 @@ public final class Qwen3TTSModel: Module, SpeechGenerationModel, @unchecked Send
         instruct: String?
     ) -> (MLXArray, MLXArray, MLXArray) {
         guard let tokenizer, let talkerConfig = config.talkerConfig else {
-            fatalError("Tokenizer/config not loaded")
+            fatalError("Tokenizers.Tokenizer/config not loaded")
         }
 
         // Tokenize text with ChatML template

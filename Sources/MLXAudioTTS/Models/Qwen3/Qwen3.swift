@@ -323,7 +323,7 @@ public class Qwen3Model: Module, KVCacheDimensionProvider, SpeechGenerationModel
 
     public let vocabularySize: Int
     public let kvHeads: [Int]
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
     public var _snacModel: SNAC?
 
     private let model: Qwen3ModelInner
@@ -612,7 +612,7 @@ public class Qwen3Model: Module, KVCacheDimensionProvider, SpeechGenerationModel
             throw Qwen3Error.modelNotInitialized("SNAC model not loaded")
         }
         guard tokenizer != nil else {
-            throw Qwen3Error.modelNotInitialized("Tokenizer not loaded")
+            throw Qwen3Error.modelNotInitialized("Tokenizers.Tokenizer not loaded")
         }
 
         // Prepare input
@@ -741,7 +741,7 @@ public class Qwen3Model: Module, KVCacheDimensionProvider, SpeechGenerationModel
                     throw Qwen3Error.modelNotInitialized("SNAC model not loaded")
                 }
                 guard self.tokenizer != nil else {
-                    throw Qwen3Error.modelNotInitialized("Tokenizer not loaded")
+                    throw Qwen3Error.modelNotInitialized("Tokenizers.Tokenizer not loaded")
                 }
                 
                 let prompt = text.replacingOccurrences(of: "\\n", with: "\n")

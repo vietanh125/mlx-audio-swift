@@ -916,7 +916,7 @@ public class Qwen3ASRModel: Module {
     @ModuleInfo(key: "model") var model: Qwen3ASRTextModel
     @ModuleInfo(key: "lm_head") var lmHead: Linear?
 
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
 
     /// Sample rate expected by the model (16kHz).
     public let sampleRate: Int = 16000
@@ -1142,7 +1142,7 @@ public class Qwen3ASRModel: Module {
 
     public func buildPrompt(numAudioTokens: Int, language: String? = nil, systemMessage: String? = nil) -> MLXArray {
         guard let tokenizer = tokenizer else {
-            fatalError("Tokenizer not loaded")
+            fatalError("Tokenizers.Tokenizer not loaded")
         }
 
         let assistantPrefix: String
@@ -1167,7 +1167,7 @@ public class Qwen3ASRModel: Module {
     /// Build token IDs for just the system-message portion of the prompt.
     private func buildSystemPrefixTokens(_ systemMessage: String) -> MLXArray {
         guard let tokenizer = tokenizer else {
-            fatalError("Tokenizer not loaded")
+            fatalError("Tokenizers.Tokenizer not loaded")
         }
         let prompt = "<|im_start|>system\n\(systemMessage)<|im_end|>\n"
         let tokenIds = tokenizer.encode(text: prompt)
@@ -1177,7 +1177,7 @@ public class Qwen3ASRModel: Module {
     /// Build token IDs for everything after the system-message prefix.
     func buildPostSystemPrompt(numAudioTokens: Int, language: String?) -> MLXArray {
         guard let tokenizer = tokenizer else {
-            fatalError("Tokenizer not loaded")
+            fatalError("Tokenizers.Tokenizer not loaded")
         }
 
         let assistantPrefix: String
@@ -1254,7 +1254,7 @@ public class Qwen3ASRModel: Module {
         language: String?
     ) -> (text: String, language: String?, promptTokens: Int, generationTokens: Int) {
         guard let tokenizer = tokenizer else {
-            fatalError("Tokenizer not loaded")
+            fatalError("Tokenizers.Tokenizer not loaded")
         }
 
         let eosTokenIds = [151645, 151643]
@@ -1426,7 +1426,7 @@ public class Qwen3ASRModel: Module {
                 let audio = sendableAudio.value
                 do {
                     guard let tokenizer = model.tokenizer else {
-                        throw STTError.modelNotInitialized("Tokenizer not loaded")
+                        throw STTError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
                     }
 
                     let startTime = Date()
@@ -1610,7 +1610,7 @@ public class Qwen3ASRModel: Module {
         return sanitized
     }
 
-    // MARK: - Tokenizer JSON Generation
+    // MARK: - Tokenizers.Tokenizer JSON Generation
 
     /// Generate `tokenizer.json` from `vocab.json` + `merges.txt` + `tokenizer_config.json`
     static func generateTokenizerJSONIfMissing(in modelDir: URL) throws {

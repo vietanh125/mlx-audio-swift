@@ -68,7 +68,7 @@ public final class ChatterboxModel: Module, SpeechGenerationModel, @unchecked Se
     // MARK: - State
 
     /// Text tokenizer loaded from tokenizer.json.
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
 
     /// S3TokenizerV2: converts audio → speech token IDs (loaded separately).
     public var s3Tokenizer: S3TokenizerV2?
@@ -459,7 +459,7 @@ public final class ChatterboxModel: Module, SpeechGenerationModel, @unchecked Se
     /// Tokenize text into token IDs for T3.
     func tokenizeText(_ text: String) throws -> MLXArray {
         guard let tokenizer = tokenizer else {
-            throw AudioGenerationError.modelNotInitialized("Tokenizer not loaded")
+            throw AudioGenerationError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
         }
 
         let encoded = tokenizer.encode(text: text)
@@ -1274,7 +1274,7 @@ private func trimSilence(
     return audio[startSample ..< endSample]
 }
 
-// MARK: - Tokenizer Generation
+// MARK: - Tokenizers.Tokenizer Generation
 
 /// Generate `tokenizer.json` (fast tokenizer format) from `vocab.json` + `merges.txt`.
 ///

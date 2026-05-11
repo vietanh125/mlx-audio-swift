@@ -675,7 +675,7 @@ class GraniteSpeechLanguageModel: Module, KVCacheDimensionProvider {
 // MARK: - Generation Context
 
 private struct GenerationContext {
-    let tokenizer: Tokenizer
+    let tokenizer: Tokenizers.Tokenizer
     let cache: [KVCache]
     let eosTokenId: Int
     var logits: MLXArray
@@ -711,7 +711,7 @@ public class GraniteSpeechModel: Module {
     @ModuleInfo(key: "language_model") var languageModel: GraniteSpeechLanguageModel
 
     let audioTokenId: Int
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
 
     public init(_ config: GraniteSpeechModelConfig) {
         self.config = config
@@ -790,7 +790,7 @@ public class GraniteSpeechModel: Module {
     // MARK: - Prompt Building
 
     func buildPrompt(numAudioTokens: Int, userPrompt: String?) -> MLXArray {
-        guard let tokenizer else { fatalError("Tokenizer not loaded") }
+        guard let tokenizer else { fatalError("Tokenizers.Tokenizer not loaded") }
 
         let prompt = userPrompt ?? "can you transcribe the speech into a written format?"
         let audioPlaceholder = String(repeating: "<|audio|>", count: numAudioTokens)
@@ -856,7 +856,7 @@ public class GraniteSpeechModel: Module {
         language: String? = nil,
         verbose: Bool = false
     ) -> STTOutput {
-        guard let tokenizer else { fatalError("Tokenizer not loaded") }
+        guard let tokenizer else { fatalError("Tokenizers.Tokenizer not loaded") }
 
         var userPrompt = prompt
         if userPrompt == nil, let language {
@@ -936,7 +936,7 @@ public class GraniteSpeechModel: Module {
         AsyncThrowingStream { continuation in
             do {
                 guard let tokenizer = self.tokenizer else {
-                    throw STTError.modelNotInitialized("Tokenizer not loaded")
+                    throw STTError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
                 }
 
                 var userPrompt = prompt

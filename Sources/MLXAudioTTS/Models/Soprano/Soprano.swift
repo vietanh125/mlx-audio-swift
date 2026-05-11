@@ -184,7 +184,7 @@ private class SopranoModelInner: Module {
 public class SopranoModel: Module, KVCacheDimensionProvider, SpeechGenerationModel, @unchecked Sendable {
     public let vocabularySize: Int
     public let kvHeads: [Int]
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
 
     private let model: SopranoModelInner
     let configuration: SopranoConfiguration
@@ -460,7 +460,7 @@ public class SopranoModel: Module, KVCacheDimensionProvider, SpeechGenerationMod
 
     private func tokenize(_ text: String) -> MLXArray {
         guard let tokenizer = tokenizer else {
-            fatalError("Tokenizer not initialized")
+            fatalError("Tokenizers.Tokenizer not initialized")
         }
 
         // Split text into special tokens and regular segments
@@ -587,7 +587,7 @@ public class SopranoModel: Module, KVCacheDimensionProvider, SpeechGenerationMod
         )
     ) async throws -> MLXArray {
         guard self.tokenizer != nil else {
-            throw SopranoError.modelNotInitialized("Tokenizer not loaded")
+            throw SopranoError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
         }
 
         // Process escape sequences and split by pattern
@@ -703,7 +703,7 @@ public class SopranoModel: Module, KVCacheDimensionProvider, SpeechGenerationMod
             
             do {
                 guard self.tokenizer != nil else {
-                    throw SopranoError.modelNotInitialized("Tokenizer not loaded")
+                    throw SopranoError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
                 }
                 
                 let prompt = text.replacingOccurrences(of: "\\n", with: "\n")

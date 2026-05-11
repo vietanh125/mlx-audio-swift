@@ -354,7 +354,7 @@ private class LlamaTTSModelInner: Module {
 public class LlamaTTSModel: Module, KVCacheDimensionProvider, SpeechGenerationModel, @unchecked Sendable {
     public let vocabularySize: Int
     public let kvHeads: [Int]
-    public var tokenizer: Tokenizer?
+    public var tokenizer: Tokenizers.Tokenizer?
     public var _snacModel: SNAC?
 
     private let model: LlamaTTSModelInner
@@ -673,7 +673,7 @@ public class LlamaTTSModel: Module, KVCacheDimensionProvider, SpeechGenerationMo
             throw LlamaTTSError.modelNotInitialized("SNAC model not loaded")
         }
         guard tokenizer != nil else {
-            throw LlamaTTSError.modelNotInitialized("Tokenizer not loaded")
+            throw LlamaTTSError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
         }
 
         // Prepare input
@@ -795,7 +795,7 @@ public class LlamaTTSModel: Module, KVCacheDimensionProvider, SpeechGenerationMo
                     throw LlamaTTSError.modelNotInitialized("SNAC model not loaded")
                 }
                 guard self.tokenizer != nil else {
-                    throw LlamaTTSError.modelNotInitialized("Tokenizer not loaded")
+                    throw LlamaTTSError.modelNotInitialized("Tokenizers.Tokenizer not loaded")
                 }
                 
                 let prompt = text.replacingOccurrences(of: "\\n", with: "\n")
