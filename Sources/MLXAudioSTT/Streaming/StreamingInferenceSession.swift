@@ -578,7 +578,7 @@ public class StreamingInferenceSession: @unchecked Sendable {
         params: DecodePassParams,
         continuation: AsyncStream<TranscriptionEvent>.Continuation?,
         sharedState: OSAllocatedUnfairLock<SessionSharedState>,
-        tokenizer: any Tokenizer,
+        tokenizer: any Tokenizers.Tokenizer,
         totalSamples: Int,
         decodeTime: Double,
         genTokenCount: Int,
@@ -683,7 +683,7 @@ public class StreamingInferenceSession: @unchecked Sendable {
 
         var totalDecodeTime: Double = 0
         var totalGeneratedTokens: Int = 0
-        let streamedFallbackForFirstWindow: String? = sharedState.withLock { state in
+        let streamedFallbackForFirstWindow: String? = sharedState.withLock { state -> String? in
             var streamTokens = state.confirmedTokenIds
             streamTokens.append(contentsOf: state.provisionalTokenIds)
             guard !streamTokens.isEmpty else { return nil }

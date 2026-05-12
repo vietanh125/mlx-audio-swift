@@ -61,7 +61,11 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift.git", .upToNextMajor(from: "0.30.6")),
-        .package(url: "https://github.com/ml-explore/mlx-swift-lm.git", .upToNextMajor(from: "2.30.3")),
+        // Re-pinned to the same fork the top-level Scribion `Package.swift`
+        // uses. Identity-matched, top-level pin wins; branch instead of
+        // version because the fork tags with llama.cpp-style names that
+        // don't parse as semver.
+        .package(url: "https://github.com/vietanh125/mlx-swift-lm.git", branch: "main"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", .upToNextMajor(from: "1.1.6")),
         .package(url: "https://github.com/huggingface/swift-huggingface.git", .upToNextMajor(from: "0.8.1"))
     ],
@@ -90,6 +94,10 @@ let package = Package(
                 .product(name: "MLXNN", package: "mlx-swift"),
                 .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
+                // Explicit dep: Mimi.swift imports Tokenizers; previously this was
+                // provided transitively via mlx-swift-lm v2.x which re-exported Hub.
+                // mlx-swift-lm v3.x removed swift-transformers, so we declare it here.
+                .product(name: "Tokenizers", package: "swift-transformers"),
             ],
             path: "Sources/MLXAudioCodecs"
         ),
