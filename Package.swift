@@ -67,7 +67,13 @@ let package = Package(
         // don't parse as semver.
         .package(url: "https://github.com/vietanh125/mlx-swift-lm.git", branch: "main"),
         .package(url: "https://github.com/huggingface/swift-transformers.git", .upToNextMajor(from: "1.1.6")),
-        .package(url: "https://github.com/huggingface/swift-huggingface.git", .upToNextMajor(from: "0.8.1"))
+        .package(url: "https://github.com/huggingface/swift-huggingface.git", .upToNextMajor(from: "0.8.1")),
+        // yyjson surfaced as a required module by `Hub` (and re-exported via
+        // `Tokenizers` / `Transformers`) in swift-transformers 1.1.9+.
+        // Declared here so downstream targets that import Tokenizers or
+        // Transformers resolve yyjson, instead of failing with
+        // `missing required module 'yyjson'`.
+        .package(url: "https://github.com/ibireme/yyjson.git", from: "0.12.0"),
     ],
     targets: [
         // MARK: - MLXAudioCore
@@ -98,6 +104,7 @@ let package = Package(
                 // provided transitively via mlx-swift-lm v2.x which re-exported Hub.
                 // mlx-swift-lm v3.x removed swift-transformers, so we declare it here.
                 .product(name: "Tokenizers", package: "swift-transformers"),
+                .product(name: "yyjson", package: "yyjson"),
             ],
             path: "Sources/MLXAudioCodecs"
         ),
@@ -116,6 +123,7 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
                 .product(name: "Transformers", package: "swift-transformers"),
+                .product(name: "yyjson", package: "yyjson"),
             ],
             path: "Sources/MLXAudioTTS"
         ),
@@ -133,6 +141,7 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
                 .product(name: "Transformers", package: "swift-transformers"),
+                .product(name: "yyjson", package: "yyjson"),
             ],
             path: "Sources/MLXAudioSTT"
         ),
@@ -178,6 +187,7 @@ let package = Package(
                 .product(name: "MLXLLM", package: "mlx-swift-lm"),
                 .product(name: "HuggingFace", package: "swift-huggingface"),
                 .product(name: "Transformers", package: "swift-transformers"),
+                .product(name: "yyjson", package: "yyjson"),
             ],
             path: "Sources/MLXAudioSTS"
         ),
